@@ -32,7 +32,7 @@ class MainWindow(Gtk.Window):
 		self.set_titlebar(headerBar)
 
 
-		button = Gtk.Button(label="Create PDF")
+		button = Gtk.Button(label="Create PDF!")
 		headerBar.pack_end(button)
 
 
