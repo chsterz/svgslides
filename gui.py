@@ -16,8 +16,7 @@ class SlideWidget(Gtk.EventBox):
 		if event.type != Gdk.EventType.BUTTON_PRESS or event.button != 1:
 			return
 		self.active = not self.active
-		self.image.set_opacity(1.0 if self.active else 0.1)
-
+		self.image.set_opacity(1.0 if self.active else 0.2)
 
 
 class MainWindow(Gtk.Window):
@@ -25,37 +24,84 @@ class MainWindow(Gtk.Window):
 	def __init__(self):	
 		super(Gtk.Window, self).__init__()
 
+		#center the MainWindow
+		self.set_position(Gtk.WindowPosition.CENTER)
+
 		#Window Header Bar
 		headerBar = Gtk.HeaderBar()
 		headerBar.props.show_close_button = True
 		headerBar.props.title = "SvgSlides"
 		self.set_titlebar(headerBar)
 
+		chooseFileButton = Gtk.Button(label="Open")
+		chooseFileButton.connect("clicked", self.openFileDialog)
+		headerBar.pack_start(chooseFileButton)
 
-		button = Gtk.Button(label="Create PDF!")
-		headerBar.pack_end(button)
+		createButton = Gtk.Button(label="Create PDF!")
+		headerBar.pack_end(createButton)
 
+		#add Droparea to Window first
+		self.dropArea = Gtk.EventBox()
+		self.dropArea.set_size_request(1024,800)
+		self.dropArea.add(Gtk.Image.new_from_pixbuf(GdkPixbuf.Pixbuf.new_from_file("dropMe.png")))
+		self.add(self.dropArea)
 
+		#set upd drag and drop
+		self.connect('drag-motion', self.on_drag_motion)
+		self.connect('drag-drop', self.on_drag_drop)
+		self.connect('drag-data-received', self.on_drag_data_received)
+		self.drag_dest_set(0, [], 0)
+
+	def on_drag_motion(self, widgt, context, c, y, time):
+		Gdk.drag_status(context, Gdk.DragAction.COPY, time)
+		return True
+
+	def on_drag_drop(self, widget, context, x, y, time):
+		widget.drag_get_data(context, context.list_targets()[-1], time)
+
+	def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
+		files = data.get_text().rstrip('\n').split('\n')
+		#drop no more than one file
+		if( len(files) != 1 ): return;
+		svgFile = files[0]
+		#check if file is SVG
+		if( svgFile[-4:] != ".svg"): return;
+		self.openFile(files[0])
+
+	def openFile(self, filename):
+		print("Doing something with " + filename)
+		self.showSlides(["presentation.png", "presentation.png", "presentation.png", "presentation.png"])
+
+	def showSlides(self, slideFiles):
 		#Window Content
-		self.scrollArea = Gtk.ScrolledWindow()		
+		self.scrollArea = Gtk.ScrolledWindow()
 		self.slides = Gtk.VBox()
 		self.slides.set_spacing(16)
-		for i in range(4):
-			self.slides.add(SlideWidget("presentation.png"))
-
-		self.scrollArea.set_size_request(900,800)
-		self.scrollArea.add(self.slides)
-		self.add(self.scrollArea)
-
-
-	def on_slide_clicked(self, widget, event):
+		for filename in slideFiles:
+			self.slides.add(SlideWidget(filename))
 		
-		image = widget.get_children()[0]
-		if(image.get_opacity() == 1.0 ): image.set_opacity(0.2) 
-		else: image.set_opacity(1.0);
+		self.scrollArea.add(self.slides)
+		self.remove(self.get_children()[0])
+		self.add(self.scrollArea)
+		self.scrollArea.show_all()
+		print (self.dropArea.get_children()[0])
 
-	def on_button_clicked(self, widget):
-		print("eier")
+	def openFileDialog(self, widget):
+		dialog = Gtk.FileChooserDialog("Please choose a file", self,
+            Gtk.FileChooserAction.OPEN,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+
+		svgFilter = Gtk.FileFilter()
+		svgFilter.add_pattern("*.svg")
+		svgFilter.set_name("Scalable Vector Graphics (*.svg)")
+		dialog.add_filter(svgFilter)
+		
+		response = dialog.run()
+		if response == Gtk.ResponseType.OK: self.openFile(dialog.get_filename());
+		elif response == Gtk.ResponseType.CANCEL: print("Cancel clicked");
+
+		dialog.destroy()
 
 win = MainWindow()
 win.connect("delete-event", Gtk.main_quit)
